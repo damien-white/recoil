@@ -1,0 +1,29 @@
+# Build output and other generated artifacts
+target/
+**/*.rs.bk
+# Comment out the following line if executable
+Cargo.lock
+
+# Environment variables
+.env
+.env*
+!.env.example
+
+# Local artifacts
+mock/
+.spec/
+.internal/
+
+# Logs
+logs/
+
+# IDEs and Editors
+.idea/
+.vscode/*
+
+## Misc
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+._*

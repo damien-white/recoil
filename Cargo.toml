@@ -1,0 +1,40 @@
+[package]
+name    = "recoil"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["std", "nightly"]
+nightly = []
+std     = []
+regexp  = ["lazy_static", "regex"]
+
+[dependencies]
+memchr = "2.5.0"
+
+# Required for parsers that use regular expressions.
+[dependencies.regex]
+version  = "1.5.6"
+optional = true
+
+# Required as part of the regular expressions module.
+[dependencies.lazy_static]
+version  = "1.4.0"
+optional = true
+
+[profile.bench]
+debug         = true
+lto           = true
+codegen-units = 1
+
+[profile.dev]
+# Disabling debug info speeds up build times during development.
+# Comment out the following line to re-enable debug info.
+debug = 0
+
+[profile.release]
+incremental = true
+debug       = 0    # Set this to 1 or 2 to get more useful backtraces in debugger.
+lto         = true
