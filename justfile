@@ -1,3 +1,5 @@
+export RUST_BACKTRACE := "1"
+
 # Lists all available commands
 _default:
     @just --list
