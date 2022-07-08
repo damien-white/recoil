@@ -49,3 +49,35 @@ macro_rules! slice_ranges_impl {
 
 slice_ranges_impl! {str}
 slice_ranges_impl! {[T]}
+
+/// Views use byte-indexing operations to view into "subslices" of memory.
+///
+/// Please note that a `View` uses use non-inclusive ranges.
+pub trait View {
+    type Subslice: ?Sized;
+
+    /// Returns a view into the subslice, given a lower and upper bound.
+    fn view(&self, range: Range<usize>) -> Self::Subslice;
+
+    /// Returns a view into the subslice, given a lower bound.
+    fn view_from(&self, from: RangeFrom<usize>) -> Self::Subslice;
+
+    /// Returns a view into the subslice, given an upper bound.
+    fn view_to(&self, to: RangeTo<usize>) -> Self::Subslice;
+}
+
+impl<'items> View for &'items [u8] {
+    type Subslice = &'items [u8];
+
+    fn view(&self, range: Range<usize>) -> Self::Subslice {
+        self.slice(range)
+    }
+
+    fn view_from(&self, from: RangeFrom<usize>) -> Self::Subslice {
+        self.slice(from)
+    }
+
+    fn view_to(&self, to: RangeTo<usize>) -> Self::Subslice {
+        self.slice(to)
+    }
+}

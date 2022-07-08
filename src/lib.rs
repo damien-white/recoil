@@ -1,17 +1,21 @@
 mod cursor;
-pub mod error;
-pub mod sequence;
+mod error;
+mod sequence;
 mod slice;
-mod view;
 
 // FIXME: Consolidate / unify trait implementations to avoid duplicating logic.
-
-pub use cursor::Cursor;
-pub use slice::Slice;
-pub use view::View;
+pub mod prelude {
+    pub use crate::{
+        cursor::Cursor,
+        sequence::Sequence,
+        slice::{Slice, View},
+    };
+}
 
 #[cfg(test)]
 mod tests {
+    use prelude::*;
+
     use super::*;
 
     #[test]

@@ -4,3 +4,9 @@ pub struct Error<I> {
     /// Recoil error code.
     pub code: u16,
 }
+
+impl<I: AsRef<[u8]>> Error<I> {
+    pub fn new(input: I, code: u16) -> Self {
+        Self { input, code }
+    }
+}
