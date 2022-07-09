@@ -1,13 +1,11 @@
 //! This module contains a cursor type used to maintain state.
-use crate::slice::View;
-use crate::{sequence::Sequence, slice::Slice};
+
+use crate::{sequence::Sequence, view::View};
 use core::{
     iter::{Copied, Enumerate},
-    ops::{Range, RangeFrom, RangeTo},
+    ops::Range,
     slice::Iter,
 };
-
-// NOTE: Add second, separate lifetime to represent `Cursor` and `inner` flows.
 
 /// Cursor used to wrap a slice of bytes and give it additional capabilities.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd)]
@@ -17,13 +15,14 @@ pub struct Cursor<'inner> {
 }
 
 impl<'inner> Cursor<'inner> {
-    pub const fn new(inner: &'inner [u8]) -> Self {
+    pub fn new(inner: &'inner [u8]) -> Self {
         debug_assert!(inner.len() < isize::MAX as usize);
         Self { inner, position: 0 }
     }
 
-    pub fn inner(&self) -> &'inner [u8] {
-        &self.inner
+    /// Returns a reference to the inner byte slice.
+    pub fn get_ref(&self) -> &'inner [u8] {
+        self.inner
     }
 
     /// Returns the current position of the cursor.
@@ -32,28 +31,80 @@ impl<'inner> Cursor<'inner> {
     }
 
     /// Consumes the cursor, returning the inner value as a vector of bytes.
-    pub fn into_vec(self) -> Vec<u8> {
-        self.inner.to_vec()
+    pub fn into_vec(self) -> Vec<(usize, u8)> {
+        self.iter_indices().collect()
     }
 
-    /// Advance the internal cursor.
-    pub fn jump(&mut self) {
-        if self.has_remaining() {
-            self.position += 1;
-            self.inner = self.view_from(self.position..);
+    /// Advance the internal cursor by the specified number of bytes.
+    pub fn advance(&mut self, count: usize) {
+        if self.remaining() > count {
+            self.position += count;
+            self.inner = self.view_from(self.position);
         }
     }
 
-    /// Advance the internal cursor by the given number of bytes.
-    pub fn jump_to(&mut self, count: usize) {
-        for _ in 0..count {
-            self.jump()
+    /// Returns a slice of `count` bytes, panicking if count > len.
+    pub fn peek_to(&mut self, count: usize) -> Option<&'inner [u8]> {
+        (self.remaining() >= count)
+            .then_some(self.view_to(count))
+            .filter(|v| v.len() == count)
+    }
+
+    /// Divides the inner slice into two at the given `index` value.
+    pub fn split_at(&mut self, mid: usize) -> (&'inner [u8], &'inner [u8]) {
+        if self.remaining() >= mid {
+            let (before, after) = self.inner.split_at(mid);
+
+            assert_eq!(before, &self.inner[self.position..mid]);
+            assert_eq!(after, &self.inner[mid..]);
+
+            self.position += mid;
+
+            assert_eq!(after, &self.inner[self.position..]);
+            (before, after)
+        } else {
+            (&[], self.inner)
         }
     }
 
-    /// Returns the next item from the inner type, advancing the position.
+    /// Returns the next item from the cursor's bytes, advancing the position.
     pub fn next_item(&mut self) -> Option<(usize, &u8)> {
         self.next()
+    }
+
+    /// Returns the item at `offset` bytes, advancing the cursor by the same amount.
+    ///
+    /// This is similar to calling `advance(offset)`, then `next_item()`.
+    pub fn offset(&mut self, offset: usize) -> Option<(usize, &u8)> {
+        if self.remaining() >= offset {
+            self.advance(offset);
+            self.next_item()
+        } else {
+            None
+        }
+    }
+
+    pub fn item_at(&mut self, count: usize) -> Option<(usize, &u8)> {
+        if self.remaining() >= count {
+            self.position += count;
+            self.next()
+        } else {
+            None
+        }
+    }
+
+    /// Returns the number of remaining bytes inside the cursor.
+    pub fn remaining(&self) -> usize {
+        if self.position() >= self.len() {
+            return 0;
+        }
+
+        self.len() - self.position()
+    }
+
+    /// Returns true if and only if the cursor contains one or more bytes.
+    pub fn has_remaining(&self) -> bool {
+        self.remaining() > 0
     }
 
     /// Returns the number of bytes contained in the cursor.
@@ -77,24 +128,24 @@ impl<'inner> Iterator for Cursor<'inner> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.inner.remaining();
+        let remaining = self.remaining();
         (remaining, Some(remaining))
     }
 }
 
 impl<'view> View for Cursor<'view> {
-    type Subslice = &'view [u8];
+    type Slice = &'view [u8];
 
-    fn view(&self, range: Range<usize>) -> Self::Subslice {
-        self.inner.slice(range)
+    fn view(&self, range: Range<usize>) -> Self::Slice {
+        &self.inner[range]
     }
 
-    fn view_from(&self, from: RangeFrom<usize>) -> Self::Subslice {
-        self.inner.slice(from)
+    fn view_from(&self, from: usize) -> Self::Slice {
+        &self.inner[from..]
     }
 
-    fn view_to(&self, to: RangeTo<usize>) -> Self::Subslice {
-        self.inner.slice(to)
+    fn view_to(&self, to: usize) -> Self::Slice {
+        &self.inner[..to]
     }
 }
 
@@ -109,19 +160,7 @@ impl<'sequence> Sequence for Cursor<'sequence> {
         self.inner.iter().copied()
     }
 
-    fn enumerate(&self) -> Self::Enum {
+    fn iter_indices(&self) -> Self::Enum {
         self.iter_copied().enumerate()
-    }
-
-    fn remaining(&self) -> usize {
-        if self.position() >= self.len() {
-            return 0;
-        }
-
-        self.len() - self.position()
-    }
-
-    fn has_remaining(&self) -> bool {
-        self.remaining() > 0
     }
 }

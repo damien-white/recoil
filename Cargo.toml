@@ -7,11 +7,7 @@ edition = "2021"
 
 [features]
 default = ["binary"]
-binary  = ["bytes", "memchr"]
-
-[dependencies.bytes]
-version  = "1.1.0"
-optional = true
+binary  = ["memchr"]
 
 [dependencies.memchr]
 version  = "2.5.0"

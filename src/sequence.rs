@@ -26,13 +26,7 @@ pub trait Sequence {
     fn iter_copied(&self) -> Self::Iter;
 
     /// Returns an enumerating iterator. Each iteration contains a byte index and item.
-    fn enumerate(&self) -> Self::Enum;
-
-    /// Returns the number of items remaining in the sequence.
-    fn remaining(&self) -> usize;
-
-    /// Returns true if and only if one or more items remain in the sequence.
-    fn has_remaining(&self) -> bool;
+    fn iter_indices(&self) -> Self::Enum;
 }
 
 impl<'items> Sequence for &'items [u8] {
@@ -46,30 +40,37 @@ impl<'items> Sequence for &'items [u8] {
         self.iter().copied()
     }
 
-    fn enumerate(&self) -> Self::Enum {
+    fn iter_indices(&self) -> Self::Enum {
         self.iter_copied().enumerate()
     }
+}
 
-    // TODO: Test this and consider adding more pointer-based methods.
-    fn remaining(&self) -> usize {
-        let start = self.as_ptr() as usize;
-        let size = core::mem::size_of::<&[u8]>();
-        let end = size * self.len();
+// Helper macro for quickly printing a byte slice to the console in various formats.
+macro_rules! print_bytes {
+    ($encoded:ident) => {{
+        let mut dest = String::new();
+        writeln!(&mut dest, "\n[bytes]: {:?}", $encoded)
+            .expect("failed to write formatted output to buffer.");
+        write!(&mut dest, "[chars]: ").expect("failed to write formatted output to buffer.");
 
-        let remaining = end - start;
-        println!("\n[start]: {start}");
-        println!("\n[end]: {end}");
-        println!("\n[remaining]: {remaining}");
-        remaining
-    }
+        ::std::string::String::from_utf8_lossy($encoded)
+            .to_string()
+            .chars()
+            .for_each(|c| {
+                write!(&mut dest, "{:^5}", c).expect("failed to write formatted output to buffer.");
+            });
 
-    fn has_remaining(&self) -> bool {
-        self.remaining() > 0
-    }
+        writeln!(&mut dest, "\n").expect("failed to write newline to end of dest buffer.");
+        println!("{}", dest);
+    }};
 }
 
 #[cfg(test)]
 mod tests {
+    use core::fmt::Write;
+
+    use crate::prelude::{Cursor, View};
+
     use super::*;
 
     #[test]
@@ -80,12 +81,22 @@ stacked borrows, and linked us some documentation.
 "#[..];
         // let offset = 0;
         let len = input.len();
+        let mut cursor = Cursor::new(input);
 
-        let expected = len;
-        let actual = input.remaining();
+        cursor.advance(7);
+        let end = cursor
+            .take_while(|&(_, b)| *b != b' ')
+            .map(|(pos, _)| pos)
+            .last()
+            .unwrap();
+        let actual = cursor.view(0..end);
+        let expected = input.view(7..7 + end);
+
+        print_bytes!(actual);
+
         assert_eq!(
             actual, expected,
-            "Expected `{}` bytes, but got: `{}`",
+            "Expected `{:?}` bytes, but got: `{:?}`",
             expected, actual
         );
     }
